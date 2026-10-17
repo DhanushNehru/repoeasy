@@ -1,0 +1,39 @@
+{
+  "name": "repoeasy",
+  "version": "1.0.0",
+  "description": "Find open-source repos that welcome outside contributors, ranked by real PR merge rates and maintainer reply times.",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "github",
+    "open-source",
+    "contributors",
+    "good-first-issue",
+    "pr-merge-rate",
+    "maintainer-response-time",
+    "hacktoberfest",
+    "welcoming-repos"
+  ],
+  "author": "Dhanush Nehru (https://github.com/DhanushNehru)",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cookie": "^1.0.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "lucide-react": "^1.33.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
+  }
+}
