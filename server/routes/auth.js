@@ -2,62 +2,95 @@
 import express from 'express';
 import axios from 'axios';
 import cookie from 'cookie';
+import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { upsertUser, getUserById } from '../db.js';
 
 const router = express.Router();
 
-// Helper to get session user from cookies
+const SESSION_COOKIE = 'repoeasy_session';
+const STATE_COOKIE = 'repoeasy_oauth_state';
+const isProduction = config.nodeEnv === 'production';
+
+// Demo login lets anyone sign in as any username, so it is dev-only
+export const demoLoginEnabled = !isProduction;
+
+function sign(value) {
+  return crypto.createHmac('sha256', config.sessionSecret).update(value).digest('base64url');
+}
+
+function safeEqual(a, b) {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
+function serializeCookie(name, value, maxAge) {
+  return cookie.serialize(name, value, {
+    httpOnly: true,
+    secure: isProduction,
+    path: '/',
+    maxAge,
+    sameSite: 'lax',
+  });
+}
+
+// Helper to get session user from the signed session cookie
 export function getSessionUser(req) {
   const cookies = cookie.parse(req.headers.cookie || '');
-  const userId = cookies.repoeasy_user_id;
-  return userId || null;
+  const raw = cookies[SESSION_COOKIE];
+  if (!raw) return null;
+
+  const dot = raw.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const userId = raw.slice(0, dot);
+  const signature = raw.slice(dot + 1);
+  return safeEqual(signature, sign(userId)) ? userId : null;
 }
 
 // Set session cookie
 export function setSessionCookie(res, userId) {
-  const serialized = cookie.serialize('repoeasy_user_id', userId, {
-    httpOnly: false, // Accessible to client-side JS for snappy UI state
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-    sameSite: 'lax',
-  });
-  res.setHeader('Set-Cookie', serialized);
+  res.append('Set-Cookie', serializeCookie(SESSION_COOKIE, `${userId}.${sign(userId)}`, 60 * 60 * 24 * 30)); // 30 days
 }
 
 // Clear session cookie
 export function clearSessionCookie(res) {
-  const serialized = cookie.serialize('repoeasy_user_id', '', {
-    httpOnly: false,
-    path: '/',
-    maxAge: 0,
-  });
-  res.setHeader('Set-Cookie', serialized);
+  res.append('Set-Cookie', serializeCookie(SESSION_COOKIE, '', 0));
 }
 
 // GET /api/auth/github/login
 router.get('/github/login', (req, res) => {
-  if (!config.github.clientId) {
-    // If no OAuth App configured, provide informative response or redirect to demo login
-    return res.status(200).json({
-      configured: false,
-      message: 'GitHub OAuth Client ID is not configured in .env. You can use the 1-Click Demo Login to experience all authenticated features immediately.',
-      demoAvailable: true,
-      demoLoginUrl: '/api/auth/demo-login',
-    });
+  if (!config.github.clientId || !config.github.clientSecret) {
+    return res.redirect('/?error=oauth_not_configured');
   }
 
-  const state = Math.random().toString(36).substring(7);
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${config.github.clientId}&redirect_uri=${encodeURIComponent(config.github.callbackUrl)}&scope=read:user,user:email&state=${state}`;
+  // Random state, echoed back by GitHub and checked against this cookie to block login CSRF
+  const state = crypto.randomBytes(16).toString('hex');
+  res.append('Set-Cookie', serializeCookie(STATE_COOKIE, state, 60 * 10));
 
-  res.redirect(githubAuthUrl);
+  const params = new URLSearchParams({
+    client_id: config.github.clientId,
+    redirect_uri: config.github.callbackUrl,
+    scope: 'read:user',
+    state,
+  });
+  res.redirect(`https://github.com/login/oauth/authorize?${params}`);
 });
 
 // GET /api/auth/github/callback
 router.get('/github/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state, error } = req.query;
+  const expectedState = cookie.parse(req.headers.cookie || '')[STATE_COOKIE];
+  res.append('Set-Cookie', serializeCookie(STATE_COOKIE, '', 0));
+
+  if (error === 'access_denied') {
+    return res.redirect('/?error=access_denied');
+  }
   if (!code) {
     return res.redirect('/?error=missing_code');
+  }
+  if (!state || !expectedState || !safeEqual(String(state), expectedState)) {
+    return res.redirect('/?error=invalid_state');
   }
 
   try {
@@ -67,6 +100,7 @@ router.get('/github/callback', async (req, res) => {
         client_id: config.github.clientId,
         client_secret: config.github.clientSecret,
         code,
+        redirect_uri: config.github.callbackUrl,
       },
       {
         headers: { Accept: 'application/json' },
@@ -75,6 +109,7 @@ router.get('/github/callback', async (req, res) => {
 
     const accessToken = tokenRes.data.access_token;
     if (!accessToken) {
+      console.error('[RepoEasy Auth] Token exchange failed:', tokenRes.data.error_description || tokenRes.data.error);
       return res.redirect('/?error=oauth_failed');
     }
 
@@ -94,6 +129,7 @@ router.get('/github/callback', async (req, res) => {
       avatarUrl: ghUser.avatar_url,
       profileUrl: ghUser.html_url,
       bio: ghUser.bio || 'Open Source Contributor',
+      // Kept server-side only: used for higher GitHub API rate limits when this user analyzes repos
       githubToken: accessToken,
       updatedAt: new Date().toISOString(),
     };
@@ -108,8 +144,12 @@ router.get('/github/callback', async (req, res) => {
   }
 });
 
-// POST or GET /api/auth/demo-login (1-Click Instant Sign In)
+// POST or GET /api/auth/demo-login (1-Click Instant Sign In, development only)
 router.all('/demo-login', async (req, res) => {
+  if (!demoLoginEnabled) {
+    return res.status(404).json({ error: 'Demo login is disabled in production' });
+  }
+
   const username = req.body?.username || req.query?.username || 'DhanushNehru';
 
   const demoUser = {
@@ -133,20 +173,25 @@ router.all('/demo-login', async (req, res) => {
 
 // GET /api/auth/me
 router.get('/me', async (req, res) => {
+  const authOptions = {
+    githubConfigured: Boolean(config.github.clientId && config.github.clientSecret),
+    demoLoginEnabled,
+  };
+
   const userId = getSessionUser(req);
   if (!userId) {
-    return res.json({ authenticated: false, user: null });
+    return res.json({ authenticated: false, user: null, ...authOptions });
   }
 
   const user = await getUserById(userId);
   if (!user) {
     clearSessionCookie(res);
-    return res.json({ authenticated: false, user: null });
+    return res.json({ authenticated: false, user: null, ...authOptions });
   }
 
   // Strip sensitive tokens before returning to client
   const { githubToken, ...safeUser } = user;
-  res.json({ authenticated: true, user: safeUser });
+  res.json({ authenticated: true, user: safeUser, ...authOptions });
 });
 
 // POST /api/auth/logout

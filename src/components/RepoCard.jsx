@@ -1,19 +1,47 @@
 import React from 'react';
-import {
-  GitPullRequest,
-  Clock,
-  CheckCircle2,
-  Flame,
-  Star,
-  GitFork,
-  ExternalLink,
-  ThumbsUp,
-  Bookmark,
-  Rocket,
-  ShieldCheck,
-  Code2,
-} from 'lucide-react';
+import { Star, GitFork, ArrowUpRight, ThumbsUp, Bookmark, Code2 } from 'lucide-react';
 import { formatNumber, formatHours, getScoreBadgeColor, getLanguageColor } from '../utils/formatters.js';
+
+function ScoreRing({ score }) {
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const pct = Math.max(0, Math.min(100, score || 0)) / 100;
+  const color = score >= 90 ? '#3fb0ff' : score >= 80 ? '#6cc2ff' : score >= 70 ? '#a39bff' : '#f5b04c';
+
+  return (
+    <div className="relative w-14 h-14 shrink-0" title="EasyScore™: contributor friendliness index">
+      <svg viewBox="0 0 48 48" className="w-full h-full -rotate-90">
+        <circle cx="24" cy="24" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5" />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - pct)}
+          className="transition-[stroke-dashoffset] duration-700"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-display text-[15px] font-semibold text-white tabular-nums">
+        {score}
+      </span>
+    </div>
+  );
+}
+
+function Metric({ label, value, hint, children }) {
+  return (
+    <div className="p-4">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className="mt-1.5 font-display text-2xl font-semibold tracking-tight text-white tabular-nums">{value}</div>
+      {children}
+      <div className="mt-1.5 text-[11px] text-slate-500">{hint}</div>
+    </div>
+  );
+}
 
 export default function RepoCard({
   repo,
@@ -27,187 +55,139 @@ export default function RepoCard({
   const mergeRate = Math.round((repo.metrics?.outsidePrMergeRate || 0) * 10) / 10;
   const replyTime = repo.metrics?.medianResponseTimeHours || 0;
   const gfiCount = repo.metrics?.goodFirstIssuesCount || 0;
-  const commits30d = repo.metrics?.recentCommitsCount30d || 0;
+
+  const replyHint = replyTime <= 4.5 ? 'Lightning-fast reviews' : replyTime <= 24 ? 'Within a day' : 'Regular review cycle';
+  const iconButton = (active) =>
+    `h-9 flex items-center justify-center gap-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${
+      active
+        ? 'bg-accent/15 border-emerald-500/40 text-emerald-300'
+        : 'bg-white/4 border-white/8 text-slate-400 hover:text-white hover:bg-white/8'
+    }`;
 
   return (
-    <div className="group relative bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-3xl p-5 sm:p-6 transition-all duration-200 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/5 flex flex-col justify-between">
-      {/* Top Section */}
-      <div>
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={`https://github.com/${repo.owner}.png`}
-              alt={repo.owner}
-              className="w-10 h-10 rounded-2xl bg-slate-800 ring-1 ring-slate-700/80 object-cover shrink-0"
-              onError={(e) => {
-                e.target.src = 'https://github.com/github.png';
-              }}
-            />
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={repo.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-base sm:text-lg font-bold text-white hover:text-emerald-400 transition-colors flex items-center gap-1.5"
-                >
-                  <span>{repo.fullName}</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
-                </a>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                <span className="flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  {formatNumber(repo.stars)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <GitFork className="w-3.5 h-3.5 text-slate-400" />
-                  {formatNumber(repo.forks)}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${langColor}`} />
-                  {repo.language}
-                </span>
-                <span className="hidden sm:inline px-2 py-0.5 rounded-md bg-slate-800 text-[11px] text-slate-300">
-                  {repo.category}
-                </span>
-              </div>
-            </div>
-          </div>
+    <article className="group relative rounded-3xl surface p-6 flex flex-col transition-all duration-300 hover:-translate-y-0.5 hover:border-white/15 hover:shadow-[0_24px_60px_-24px_rgba(0,153,255,0.25)]">
+      {/* Top hairline highlight on hover */}
+      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-          {/* EasyScore Badge */}
-          <div className="flex flex-col items-end shrink-0">
-            <div
-              className={`px-3 py-1.5 rounded-2xl border flex items-center gap-1.5 ${scoreBadge.bg} shadow-sm`}
-              title="EasyScore™: Contributor Friendliness Index"
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3.5 min-w-0">
+          <img
+            src={`https://github.com/${repo.owner}.png`}
+            alt={repo.owner}
+            className="w-11 h-11 rounded-xl bg-slate-800 ring-1 ring-white/10 object-cover shrink-0"
+            onError={(e) => {
+              e.target.src = 'https://github.com/github.png';
+            }}
+          />
+          <div className="min-w-0">
+            <a
+              href={repo.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-base font-medium text-white hover:text-emerald-300 transition-colors max-w-full"
             >
-              <span className="text-xs font-semibold text-slate-400">EasyScore</span>
-              <span className={`text-base font-extrabold ${scoreBadge.fill}`}>
-                {repo.easyScore}
+              <span className="truncate">
+                <span className="text-slate-500">{repo.owner}/</span>
+                {repo.name || repo.fullName?.split('/')[1]}
               </span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">
-              {scoreBadge.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Description */}
-        <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 mb-4 leading-relaxed">
-          {repo.description}
-        </p>
-
-        {/* Telemetry Metric Grid */}
-        <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-4">
-          {/* PR Merge Rate */}
-          <div className="p-2">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                <GitPullRequest className="w-3.5 h-3.5 text-emerald-400" />
-                Outside PR Merge Rate
+              <ArrowUpRight className="w-4 h-4 shrink-0 text-slate-500 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+            </a>
+            <div className="mt-1.5 flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${langColor}`} />
+                {repo.language}
               </span>
-              <span className="font-bold text-white text-xs">{mergeRate}%</span>
-            </div>
-            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(10, mergeRate))}%` }}
-              />
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              {repo.metrics?.mergedOutsidePrs || 0} of {repo.metrics?.totalOutsidePrsSampled || 0} PRs merged
-            </span>
-          </div>
-
-          {/* Maintainer Reply Time */}
-          <div className="p-2 border-l border-slate-800/80">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-slate-400 flex items-center gap-1 text-[11px]">
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                Median Reply Time
+              <span className="flex items-center gap-1">
+                <Star className="w-3.5 h-3.5" />
+                {formatNumber(repo.stars)}
               </span>
-              <span className="font-bold text-white text-xs">{formatHours(replyTime)}</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  replyTime <= 4.5 ? 'bg-emerald-400 animate-pulse' : replyTime <= 24 ? 'bg-cyan-400' : 'bg-amber-400'
-                }`}
-              />
-              <span className="text-[10px] text-slate-300">
-                {replyTime <= 4.5 ? '⚡ Lightning fast review' : replyTime <= 24 ? 'Within 24 hours' : 'Regular review cycle'}
+              <span className="flex items-center gap-1">
+                <GitFork className="w-3.5 h-3.5" />
+                {formatNumber(repo.forks)}
               </span>
+              {repo.category && <span className="hidden sm:inline text-slate-600">· {repo.category}</span>}
             </div>
           </div>
         </div>
 
-        {/* Badges Strip */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-4">
-          {(repo.badges || []).slice(0, 3).map((badge, idx) => (
-            <span
-              key={idx}
-              className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700/60"
-              title={badge.desc}
-            >
-              {badge.label}
-            </span>
-          ))}
-          {gfiCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              {gfiCount} Good First Issues
-            </span>
-          )}
+        <div className="flex flex-col items-center gap-1">
+          <ScoreRing score={repo.easyScore} />
+          <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{scoreBadge.label}</span>
         </div>
       </div>
 
-      {/* Bottom Action Footer */}
-      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        {/* Quick Contribute Button */}
+      <p className="mt-4 text-sm text-slate-400 leading-relaxed line-clamp-2">{repo.description}</p>
+
+      {/* Metrics */}
+      <div className="mt-5 grid grid-cols-2 rounded-2xl bg-black/40 border border-white/6 divide-x divide-white/6">
+        <Metric
+          label="Outside PRs merged"
+          value={`${mergeRate}%`}
+          hint={`${repo.metrics?.mergedOutsidePrs || 0} of ${repo.metrics?.totalOutsidePrsSampled || 0} sampled PRs`}
+        >
+          <div className="mt-2.5 h-1 rounded-full bg-white/8 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-violet-400 transition-all duration-700"
+              style={{ width: `${Math.min(100, Math.max(4, mergeRate))}%` }}
+            />
+          </div>
+        </Metric>
+        <Metric label="Median reply" value={formatHours(replyTime)} hint={replyHint}>
+          <div className="mt-2.5 flex gap-1">
+            {[4.5, 12, 24, 72].map((threshold) => (
+              <span
+                key={threshold}
+                className={`h-1 flex-1 rounded-full ${replyTime <= threshold ? 'bg-emerald-400' : 'bg-white/8'}`}
+              />
+            ))}
+          </div>
+        </Metric>
+      </div>
+
+      {/* Tags */}
+      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+        {gfiCount > 0 && (
+          <span className="h-6 px-2.5 rounded-full text-[11px] font-medium bg-accent/12 text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {gfiCount} good first issues
+          </span>
+        )}
+        {(repo.badges || []).slice(0, 3).map((badge, idx) => (
+          <span
+            key={idx}
+            className="h-6 px-2.5 rounded-full text-[11px] text-slate-400 border border-white/8 flex items-center"
+            title={badge.desc}
+          >
+            {badge.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="mt-auto pt-6 flex items-center gap-2">
         <button
           onClick={() => onQuickContribute(repo)}
-          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 active:scale-98 transition-all cursor-pointer"
+          className="flex-1 h-10 rounded-full bg-white text-black text-sm font-medium hover:bg-slate-200 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5"
         >
-          <Rocket className="w-4 h-4" />
-          <span>Quick Contribute</span>
+          Start contributing
+          <ArrowUpRight className="w-4 h-4" />
         </button>
-
-        {/* Upvote Button */}
-        <button
-          onClick={() => onVote(repo)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-            repo.isVoted
-              ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400'
-              : 'bg-slate-800 hover:bg-slate-700/80 border-slate-700/80 text-slate-300'
-          }`}
-          title="Upvote repository"
-        >
-          <ThumbsUp className={`w-3.5 h-3.5 ${repo.isVoted ? 'fill-emerald-400' : ''}`} />
-          <span>{repo.upvotes || 0}</span>
+        <button onClick={() => onVote(repo)} className={`${iconButton(repo.isVoted)} px-3.5 h-10`} title="Upvote repository">
+          <ThumbsUp className={`w-3.5 h-3.5 ${repo.isVoted ? 'fill-current' : ''}`} />
+          <span className="tabular-nums">{repo.upvotes || 0}</span>
         </button>
-
-        {/* Bookmark Button */}
         <button
           onClick={() => onBookmark(repo)}
-          className={`p-2 rounded-xl text-xs border transition-all cursor-pointer ${
-            repo.isBookmarked
-              ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400'
-              : 'bg-slate-800 hover:bg-slate-700/80 border-slate-700/80 text-slate-400 hover:text-white'
-          }`}
+          className={`${iconButton(repo.isBookmarked)} w-10 h-10`}
           title={repo.isBookmarked ? 'Remove from Watchlist' : 'Add to Contributor Watchlist'}
         >
-          <Bookmark className={`w-4 h-4 ${repo.isBookmarked ? 'fill-emerald-400' : ''}`} />
+          <Bookmark className={`w-4 h-4 ${repo.isBookmarked ? 'fill-current' : ''}`} />
         </button>
-
-        {/* Badge Generator Trigger */}
-        <button
-          onClick={() => onOpenBadgeModal(repo)}
-          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          title="Get embeddable README badge"
-        >
+        <button onClick={() => onOpenBadgeModal(repo)} className={`${iconButton(false)} w-10 h-10`} title="Get embeddable README badge">
           <Code2 className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </article>
   );
 }
