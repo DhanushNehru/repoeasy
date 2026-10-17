@@ -1,7 +1,9 @@
 // Integration tests for RepoEasy API endpoints
 import test from 'node:test';
 import assert from 'node:assert';
-import app from '../server/index.js';
+import app, { server } from '../server/index.js';
+
+test.after(() => server.close());
 
 test('GET /api/health returns status ok', async () => {
   // Use node fetch or app handler directly

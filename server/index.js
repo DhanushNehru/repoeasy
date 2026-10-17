@@ -9,6 +9,12 @@ import authRoutes from './routes/auth.js';
 import reposRoutes from './routes/repos.js';
 import badgesRoutes from './routes/badges.js';
 
+// Session cookies are signed with this secret, so a public default would let anyone forge logins
+if (config.nodeEnv === 'production' && !config.hasCustomSessionSecret) {
+  console.error('[RepoEasy] SESSION_SECRET must be set in production.');
+  process.exit(1);
+}
+
 const app = express();
 
 // Middleware

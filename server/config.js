@@ -15,6 +15,7 @@ export const config = {
     token: process.env.GITHUB_TOKEN || '',
   },
   sessionSecret: process.env.SESSION_SECRET || 'repoeasy_dev_secret_key_2026',
+  hasCustomSessionSecret: Boolean(process.env.SESSION_SECRET),
   paths: {
     root: path.resolve(__dirname, '..'),
     dataDir: path.resolve(__dirname, '..', 'data'),

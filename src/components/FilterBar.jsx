@@ -1,5 +1,8 @@
 import React from 'react';
-import { SlidersHorizontal, Sparkles, GitPullRequest, Clock, Flame, CheckCircle2, Star, RotateCcw } from 'lucide-react';
+import { RotateCcw, Check } from 'lucide-react';
+
+const selectClass =
+  'h-9 bg-white/4 hover:bg-white/6 border border-white/8 rounded-full pl-3.5 text-xs font-medium text-slate-200 focus:outline-none focus:border-emerald-500/60 cursor-pointer transition-colors';
 
 export default function FilterBar({
   sort,
@@ -18,12 +21,12 @@ export default function FilterBar({
   totalResults = 0,
 }) {
   const sortTabs = [
-    { id: 'easyScore', label: 'EasyScore™', icon: Sparkles },
-    { id: 'mergeRate', label: 'PR Merge Rate', icon: GitPullRequest },
-    { id: 'replyTime', label: 'Fastest Reply', icon: Clock },
-    { id: 'commits', label: 'Velocity', icon: Flame },
-    { id: 'goodFirstIssues', label: 'Starter Issues', icon: CheckCircle2 },
-    { id: 'stars', label: 'Stars', icon: Star },
+    { id: 'easyScore', label: 'EasyScore' },
+    { id: 'mergeRate', label: 'Merge rate' },
+    { id: 'replyTime', label: 'Fastest reply' },
+    { id: 'commits', label: 'Velocity' },
+    { id: 'goodFirstIssues', label: 'Starter issues' },
+    { id: 'stars', label: 'Stars' },
   ];
 
   const hasActiveFilters =
@@ -34,63 +37,49 @@ export default function FilterBar({
     hasGoodFirstIssues;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 backdrop-blur-md shadow-xl">
-        {/* Top: Ranking Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-2 flex items-center gap-1.5 shrink-0">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
-              Rank By:
-            </span>
+    <div id="directory" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+        <div>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white">Directory</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            <span className="text-white font-medium tabular-nums">{totalResults}</span> welcoming repositories
+          </p>
+        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={onResetFilters}
+            className="self-start sm:self-auto flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset filters
+          </button>
+        )}
+      </div>
+
+      <div className="py-1">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* Sort: segmented control */}
+          <div className="flex items-center p-1 rounded-full surface overflow-x-auto scrollbar-none max-w-full self-start">
             {sortTabs.map((tab) => {
-              const Icon = tab.icon;
               const active = sort === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => onSortChange(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                    active
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                      : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                  className={`h-8 px-3.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                    active ? 'bg-white text-black shadow-sm' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${active ? 'text-slate-950' : 'text-slate-400'}`} />
-                  <span>{tab.label}</span>
+                  {tab.label}
                 </button>
               );
             })}
           </div>
 
-          <div className="text-xs text-slate-400 font-medium shrink-0 flex items-center justify-between sm:justify-end gap-3">
-            <span>
-              Showing <strong className="text-emerald-400">{totalResults}</strong> welcoming repositories
-            </span>
-            {hasActiveFilters && (
-              <button
-                onClick={onResetFilters}
-                className="flex items-center gap-1 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
-                title="Reset all filters"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom: Filter Dropdowns */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 pt-4">
-          {/* Language */}
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Language</label>
-            <select
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              <option value="all">All Languages</option>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={language} onChange={(e) => onLanguageChange(e.target.value)} className={selectClass} aria-label="Language">
+              <option value="all">All languages</option>
               <option value="TypeScript">TypeScript</option>
               <option value="JavaScript">JavaScript</option>
               <option value="Python">Python</option>
@@ -98,69 +87,48 @@ export default function FilterBar({
               <option value="Go">Go</option>
               <option value="C++">C++</option>
             </select>
-          </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Ecosystem</label>
-            <select
-              value={category}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              <option value="all">All Categories</option>
+            <select value={category} onChange={(e) => onCategoryChange(e.target.value)} className={selectClass} aria-label="Ecosystem">
+              <option value="all">All ecosystems</option>
               <option value="Frontend & UI">Frontend & UI</option>
               <option value="Backend & APIs">Backend & APIs</option>
               <option value="CLI & DevTools">CLI & DevTools</option>
               <option value="DevOps & Cloud">DevOps & Cloud</option>
               <option value="Education & Learning">Education</option>
             </select>
-          </div>
 
-          {/* Min PR Merge Rate */}
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Min Merge Rate</label>
-            <select
-              value={minMergeRate}
-              onChange={(e) => onMinMergeRateChange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              <option value="all">Any Rate</option>
-              <option value="90">≥ 90% (Outstanding)</option>
-              <option value="80">≥ 80% (High Acceptance)</option>
-              <option value="70">≥ 70% (Welcoming)</option>
-              <option value="50">≥ 50% (Active)</option>
+            <select value={minMergeRate} onChange={(e) => onMinMergeRateChange(e.target.value)} className={selectClass} aria-label="Minimum merge rate">
+              <option value="all">Any merge rate</option>
+              <option value="90">≥ 90% merged</option>
+              <option value="80">≥ 80% merged</option>
+              <option value="70">≥ 70% merged</option>
+              <option value="50">≥ 50% merged</option>
             </select>
-          </div>
 
-          {/* Maintainer Response Time */}
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Max Reply Time</label>
-            <select
-              value={maxReplyHours}
-              onChange={(e) => onMaxReplyHoursChange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              <option value="all">Any Time</option>
-              <option value="4">Under 4 hours ⚡</option>
-              <option value="12">Under 12 hours</option>
-              <option value="24">Under 24 hours</option>
-              <option value="72">Under 3 days</option>
+            <select value={maxReplyHours} onChange={(e) => onMaxReplyHoursChange(e.target.value)} className={selectClass} aria-label="Maximum reply time">
+              <option value="all">Any reply time</option>
+              <option value="4">Reply &lt; 4h</option>
+              <option value="12">Reply &lt; 12h</option>
+              <option value="24">Reply &lt; 24h</option>
+              <option value="72">Reply &lt; 3 days</option>
             </select>
-          </div>
 
-          {/* Good First Issues Toggle */}
-          <div className="col-span-2 sm:col-span-2 md:col-span-4 lg:col-span-1 flex items-end">
             <button
               onClick={onToggleGoodFirstIssues}
-              className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+              className={`h-9 shrink-0 flex items-center gap-1.5 px-3.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                 hasGoodFirstIssues
-                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
-                  : 'bg-slate-800 border-slate-700/80 text-slate-400 hover:text-slate-200'
+                  ? 'bg-accent/15 border-emerald-500/50 text-emerald-300'
+                  : 'bg-white/4 border-white/8 text-slate-300 hover:bg-white/6'
               }`}
             >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${hasGoodFirstIssues ? 'text-emerald-400' : 'text-slate-500'}`} />
-              <span>Has Starter Issues</span>
+              <span
+                className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${
+                  hasGoodFirstIssues ? 'bg-accent border-transparent' : 'border-slate-600'
+                }`}
+              >
+                {hasGoodFirstIssues && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+              </span>
+              Has starter issues
             </button>
           </div>
         </div>
