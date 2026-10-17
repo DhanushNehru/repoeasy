@@ -1,0 +1,19 @@
+services:
+  repoeasy:
+    build: .
+    container_name: repoeasy
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - SESSION_SECRET=${SESSION_SECRET:-repoeasy_production_secret_key_2026}
+    volumes:
+      - repoeasy_data:/app/data
+
+volumes:
+  repoeasy_data:
