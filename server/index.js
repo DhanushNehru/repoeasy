@@ -68,15 +68,20 @@ if (fs.existsSync(distPath)) {
   });
 }
 
-const server = app.listen(config.port, () => {
-  console.log(`\n=================================================`);
-  console.log(`🚀 RepoEasy Server is live on http://localhost:${config.port}`);
-  console.log(`📡 API Endpoints:`);
-  console.log(`   - Auth:   http://localhost:${config.port}/api/auth/me`);
-  console.log(`   - Repos:  http://localhost:${config.port}/api/repos`);
-  console.log(`   - Badges: http://localhost:${config.port}/api/badges/owner/repo.svg`);
-  console.log(`=================================================\n`);
-});
+// On Vercel the app is exported and served as a serverless function
+// (see api/index.js); only start a listener when running directly.
+let server = null;
+if (!process.env.VERCEL) {
+  server = app.listen(config.port, () => {
+    console.log(`\n=================================================`);
+    console.log(`🚀 RepoEasy Server is live on http://localhost:${config.port}`);
+    console.log(`📡 API Endpoints:`);
+    console.log(`   - Auth:   http://localhost:${config.port}/api/auth/me`);
+    console.log(`   - Repos:  http://localhost:${config.port}/api/repos`);
+    console.log(`   - Badges: http://localhost:${config.port}/api/badges/owner/repo.svg`);
+    console.log(`=================================================\n`);
+  });
+}
 
 export default app;
 export { server };
