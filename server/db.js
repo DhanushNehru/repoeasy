@@ -1,34 +1,82 @@
-// Atomic file-backed JSON database for RepoEasy
+// JSON database for RepoEasy.
+// On Vercel (KV_REST_API_URL / KV_REST_API_TOKEN set by the connected Upstash
+// store) the whole document lives in a single Redis key. Locally it falls back
+// to the original atomic file-backed store at data/db.json.
 import fs from 'node:fs/promises';
-import path from 'node:path';
+import seedRepos from './seeds/repos.json' with { type: 'json' };
 import { config } from './config.js';
 
 let dbCache = null;
+
+const KV_REST_API_URL = process.env.KV_REST_API_URL;
+const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
+const useKv = Boolean(KV_REST_API_URL && KV_REST_API_TOKEN);
+const KV_KEY = 'repoeasy:db';
+
+async function kvCommand(...args) {
+  const res = await fetch(KV_REST_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${KV_REST_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    throw new Error(`[RepoEasy DB] KV command ${args[0]} failed with HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(`[RepoEasy DB] KV command ${args[0]} error: ${data.error}`);
+  }
+  return data.result;
+}
 
 async function ensureDataDirectory() {
   await fs.mkdir(config.paths.dataDir, { recursive: true });
 }
 
-async function loadInitialSeeds() {
-  const seedPath = path.resolve(config.paths.root, 'server', 'seeds', 'repos.json');
-  try {
-    const raw = await fs.readFile(seedPath, 'utf8');
-    return JSON.parse(raw);
-  } catch (err) {
-    console.warn('[RepoEasy DB] Failed to load seeds, initializing with empty array:', err.message);
-    return [];
-  }
+// Imported statically so the file is always bundled with the deployment;
+// deep-cloned because the db mutates this array at runtime.
+function loadInitialSeeds() {
+  return JSON.parse(JSON.stringify(seedRepos));
 }
 
 export async function initDb() {
+  if (useKv) {
+    try {
+      const raw = await kvCommand('GET', KV_KEY);
+      if (raw) {
+        dbCache = JSON.parse(raw);
+        return dbCache;
+      }
+    } catch (err) {
+      console.error('[RepoEasy DB] KV read failed, seeding a fresh document:', err.message);
+    }
+    dbCache = await buildInitialDb();
+    try {
+      await persistDb();
+    } catch (err) {
+      // Stay up in a degraded in-memory mode rather than failing every request.
+      console.error('[RepoEasy DB] KV write failed, continuing in memory only:', err.message);
+    }
+    return dbCache;
+  }
   await ensureDataDirectory();
   try {
     const content = await fs.readFile(config.paths.dbFile, 'utf8');
     dbCache = JSON.parse(content);
   } catch {
     // DB does not exist yet; populate with curated seed
-    const initialRepos = await loadInitialSeeds();
-    dbCache = {
+    dbCache = await buildInitialDb();
+    await persistDb();
+  }
+  return dbCache;
+}
+
+async function buildInitialDb() {
+    const initialRepos = loadInitialSeeds();
+    return {
       repos: initialRepos,
       users: [
         {
@@ -51,13 +99,14 @@ export async function initDb() {
       },
       sessions: {}
     };
-    await persistDb();
-  }
-  return dbCache;
 }
 
 async function persistDb() {
   if (!dbCache) return;
+  if (useKv) {
+    await kvCommand('SET', KV_KEY, JSON.stringify(dbCache));
+    return;
+  }
   await ensureDataDirectory();
   const tmpPath = `${config.paths.dbFile}.tmp.${Date.now()}`;
   const data = JSON.stringify(dbCache, null, 2);

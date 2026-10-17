@@ -128,6 +128,21 @@ npx vite
 docker compose up -d
 ```
 
+### Vercel Deployment
+
+The repo deploys to Vercel as a static frontend plus a serverless API
+(`api/index.js` wraps the Express app; `vercel.json` routes `/api/*` to it).
+
+1. Import the repo into Vercel (Vite preset, defaults are fine).
+2. Connect an Upstash Redis store to the project with the `KV` environment
+   prefix. The API persists users, votes, bookmarks and submitted repos there.
+   Without it, the API falls back to the bundled seed data and changes are
+   not kept between runs.
+3. Set the environment variables from the table below (Production scope) and
+   redeploy: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`,
+   `GITHUB_CALLBACK_URL` (`https://<your-app>.vercel.app/api/auth/github/callback`),
+   and `SESSION_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
+
 ---
 
 ## 🧪 Testing
